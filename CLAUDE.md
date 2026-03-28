@@ -21,9 +21,42 @@ prefixLinker/
 
 > `src/core.js`를 수정하면 반드시 `extension/core.js`에도 동기화한다 (`npm run build`).
 
+## 개발 환경 설정
+
+### 처음 클론하거나 `node_modules`가 없을 때
+
+`node_modules`는 `.gitignore`에 의해 저장소에 포함되지 않는다.
+`package-lock.json`이 의존성의 정확한 버전을 고정하고 있으므로,
+아래 명령어로 동일한 환경을 재현한다.
+
+```bash
+npm ci        # package-lock.json 기준으로 정확히 설치 (CI/협업 권장)
+# 또는
+npm install   # package.json 기준으로 설치 (lock 파일도 갱신될 수 있음)
+```
+
+> `npm ci`는 `node_modules`를 한 번 지우고 lock 파일을 그대로 따르므로
+> "내 환경에서만 되는" 문제를 예방한다. 새로운 환경 세팅 시 `npm ci`를 기본으로 사용한다.
+
+### 의존성을 새로 추가할 때
+
+```bash
+npm install <package>          # 런타임 의존성
+npm install --save-dev <package>  # 개발 의존성 (테스트 도구 등)
+```
+
+추가 후 `package.json`과 `package-lock.json` 두 파일을 함께 커밋한다.
+
+### `node_modules` 재설치가 필요한 상황
+
+- 저장소를 처음 클론했을 때
+- `package-lock.json`이 변경된 커밋을 pull 받았을 때
+- 의존성 관련 오류가 발생할 때 (`npm ci`로 클린 설치)
+
 ## 개발 명령어
 
 ```bash
+npm ci                # 의존성 클린 설치 (처음 세팅 시)
 npm test              # 단위 테스트 실행
 npm run test:watch    # 워치 모드
 npm run test:coverage # 커버리지 리포트
