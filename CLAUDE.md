@@ -95,6 +95,32 @@ each addedNode immediately.
 Signed-off-by: Kiyoung Yoon <craclog@gmail.com>
 ```
 
+## 버전 관리
+
+변경 사항이 있을 때마다 **두 파일의 버전을 함께 올린다.**
+
+- `extension/manifest.json` → `"version"` 필드 (Chrome이 실제로 읽는 버전)
+- `package.json` → `"version"` 필드 (npm 에코시스템 버전, manifest와 항상 동기화)
+
+### Semantic Versioning 기준
+
+| 변경 종류 | 올릴 버전 | 예시 |
+|-----------|-----------|------|
+| 새 기능 추가 (하위 호환) | **minor** `1.0.0 → 1.1.0` | 규칙 편집 기능, 아이콘 추가 |
+| 버그 수정, 성능 개선 | **patch** `1.1.0 → 1.1.1` | 크래시 수정, 가드 추가 |
+| 기존 동작이 바뀌는 큰 변경 | **major** `1.1.0 → 2.0.0` | 스토리지 구조 변경 |
+
+### 버전 커밋 예시
+
+```
+chore: bump version to 1.1.0
+
+Add rule-edit UI, chain-link icon, English UI, and dynamic-content
+MutationObserver guard introduced since 1.0.0.
+
+Signed-off-by: Kiyoung Yoon <craclog@gmail.com>
+```
+
 ## TDD 워크플로우
 
 1. **Red** — 실패하는 테스트를 먼저 작성한다.
