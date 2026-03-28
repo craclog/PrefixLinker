@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>PrefixLinker — Test Page</title>
+  <style>
+    body { font-family: sans-serif; max-width: 720px; margin: 40px auto; line-height: 1.7; color: #222; }
+    h1   { color: #1a73e8; margin-bottom: 4px; }
+    h2   { border-bottom: 2px solid #eee; padding-bottom: 4px; margin-top: 32px; }
+    .case { background: #f8f9fa; border-left: 3px solid #1a73e8; padding: 10px 14px; margin: 8px 0; border-radius: 0 6px 6px 0; }
+    .label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+    code { background: #eee; padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+
+    /* Style injected by extension */
+    .prefix-linker-link {
+      color: #1a73e8;
+      text-decoration: underline dotted;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .prefix-linker-link:hover { text-decoration: underline solid; }
+
+    /* Test result area */
+    #results { margin-top: 32px; font-size: 13px; }
+    .pass { color: green; }
+    .fail { color: red; }
+  </style>
+</head>
+<body>
+
+<h1>PrefixLinker</h1>
+<p>이 페이지는 크롬 익스텐션 테스트용입니다.
+   익스텐션을 로드한 뒤 규칙을 등록하면 아래 텍스트가 링크로 변환됩니다.</p>
+<p>테스트 규칙 예시: prefix = <code>CSWPR-</code>, URL = <code>https://www.google.com/search?q={match}</code></p>
+
+<!-- ── 정상 케이스 ──────────────────────────────────── -->
+<h2>정상 케이스 (링크로 변환돼야 함)</h2>
+
+<div class="case">
+  <div class="label">단일 매칭</div>
+  <p>이슈 CSWPR-12345 를 확인해주세요.</p>
+</div>
+
+<div class="case">
+  <div class="label">문장 앞</div>
+  <p>CSWPR-1 이 먼저 처리돼야 합니다.</p>
+</div>
+
+<div class="case">
+  <div class="label">문장 끝</div>
+  <p>다음 스프린트로 이관: CSWPR-9999</p>
+</div>
+
+<div class="case">
+  <div class="label">한 줄에 여러 개</div>
+  <p>CSWPR-100 과 CSWPR-200 은 중복입니다.</p>
+</div>
+
+<div class="case">
+  <div class="label">여러 prefix 혼합 (JIRA- 규칙도 등록 필요)</div>
+  <p>CSWPR-300 이 JIRA-450 에서 파생됐습니다.</p>
+</div>
+
+<div class="case">
+  <div class="label">한글 문장 내 매칭</div>
+  <p>이 버그는 티켓 CSWPR-777 을 통해 추적됩니다.</p>
+</div>
+
+<!-- ── 변환되면 안 되는 케이스 ─────────────────────── -->
+<h2>변환되면 안 되는 케이스</h2>
+
+<div class="case">
+  <div class="label">이미 링크인 텍스트</div>
+  <p><a href="https://example.com">CSWPR-000 (이미 &lt;a&gt; 태그 안)</a></p>
+</div>
+
+<div class="case">
+  <div class="label">input / textarea</div>
+  <input type="text" value="CSWPR-INPUT" style="width:200px;padding:4px;" readonly />
+  <textarea style="display:block;margin-top:6px;width:300px;" rows="2" readonly>CSWPR-TEXTAREA</textarea>
+</div>
+
+<div class="case">
+  <div class="label">script 태그 내부 (소스 보기로 확인)</div>
+  <script>
+    // CSWPR-SCRIPT — this must NOT be linkified
+    var x = 'CSWPR-SCRIPT';
+  </script>
+  <em>스크립트 내부 (DOM에 표시되지 않음)</em>
+</div>
+
+<div class="case">
+  <div class="label">Prefix만 있고 suffix 없음</div>
+  <p>CSWPR- (suffix 없어서 매칭 안 됨)</p>
+</div>
+
+<!-- ── 동적 콘텐츠 ────────────────────────────────── -->
+<h2>동적 콘텐츠 (버튼 클릭 후 추가)</h2>
+<button onclick="addDynamic()">동적 콘텐츠 추가</button>
+<div id="dynamic-area" style="margin-top:8px;"></div>
+
+<script>
+  function addDynamic() {
+    const div = document.getElementById('dynamic-area');
+    div.innerHTML = '<p>동적으로 추가된 텍스트: CSWPR-9876</p>';
+  }
+</script>
+
+<!-- ── 자동 검증 ─────────────────────────────────── -->
+<h2>자동 검증 (익스텐션 로드 후 1 초 뒤 실행)</h2>
+<div id="results">검사 중...</div>
+
+<script>
+  // Wait briefly for the content script to run, then verify.
+  setTimeout(function () {
+    const results = document.getElementById('results');
+    const checks  = [];
+
+    function check(desc, condition) {
+      checks.push({ desc, pass: condition });
+    }
+
+    // 1. At least one .prefix-linker-link should exist if the extension is active.
+    const links = document.querySelectorAll('.prefix-linker-link');
+    check('익스텐션이 활성화되어 링크가 생성됨', links.length > 0);
+
+    // 2. <a> tags that already existed should not be double-wrapped.
+    const existingAnchor = document.querySelector('a[href="https://example.com"]');
+    if (existingAnchor) {
+      const nested = existingAnchor.querySelector('a');
+      check('기존 <a> 태그 내부에 중복 링크 없음', nested === null);
+    }
+
+    // 3. Input values must not be modified.
+    const inputEl = document.querySelector('input[value="CSWPR-INPUT"]');
+    check('input 값이 변경되지 않음', inputEl && inputEl.value === 'CSWPR-INPUT');
+
+    // Render
+    if (links.length === 0) {
+      results.innerHTML = '<p>익스텐션이 아직 로드되지 않았거나 규칙이 없습니다. popup에서 규칙을 등록하고 페이지를 새로고침하세요.</p>';
+      return;
+    }
+
+    results.innerHTML = checks.map(c =>
+      `<div class="${c.pass ? 'pass' : 'fail'}">${c.pass ? '✓' : '✗'} ${c.desc}</div>`
+    ).join('');
+  }, 1000);
+</script>
+
+</body>
+</html>
