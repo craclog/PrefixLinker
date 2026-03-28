@@ -57,6 +57,12 @@
    * @param {RegExp} pattern
    */
   function linkifyTextNode(textNode, rules, pattern) {
+    // Guard: the node may have been detached between the MutationObserver
+    // recording it as "added" and this callback actually running.
+    // In browsers, multiple DOM mutations are batched before the observer
+    // fires, so a node can be removed before we get to process it.
+    if (!textNode.parentNode) return;
+
     const parts = splitTextByPattern(textNode.nodeValue, pattern);
 
     // Nothing to do if there are no matches.
@@ -105,6 +111,8 @@
       mutations.forEach(({ addedNodes }) => {
         addedNodes.forEach(node => {
           if (node.nodeType === Node.ELEMENT_NODE) {
+            // Guard: element may have been removed before this callback ran.
+            if (!node.isConnected) return;
             walkAndLinkify(node, rules, pattern);
           } else if (node.nodeType === Node.TEXT_NODE) {
             linkifyTextNode(node, rules, pattern);
@@ -145,4 +153,9 @@
       window.location.reload();
     }
   });
+
+  // Expose internals for unit testing in Node.js (no-op in the browser).
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { linkifyTextNode, walkAndLinkify };
+  }
 })();
