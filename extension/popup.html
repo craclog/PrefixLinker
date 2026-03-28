@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>PrefixLinker</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      width: 380px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 13px;
+      background: #f9f9f9;
+      color: #222;
+    }
+
+    header {
+      background: #1a73e8;
+      color: #fff;
+      padding: 12px 16px;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+
+    main { padding: 12px 16px; }
+
+    h2 {
+      font-size: 12px;
+      font-weight: 600;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    /* Rule list */
+    #rule-list { list-style: none; margin-bottom: 12px; }
+
+    #rule-list li {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-bottom: 6px;
+    }
+
+    #rule-list li .rule-info { flex: 1; min-width: 0; }
+
+    #rule-list li .prefix {
+      font-weight: 600;
+      color: #1a73e8;
+      white-space: nowrap;
+    }
+
+    #rule-list li .url-template {
+      font-size: 11px;
+      color: #888;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #rule-list li button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #999;
+      padding: 2px 4px;
+      border-radius: 4px;
+      font-size: 14px;
+      line-height: 1;
+    }
+    #rule-list li button:hover { color: #d93025; background: #fce8e6; }
+
+    /* Add form */
+    #add-form {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 12px;
+    }
+
+    #add-form label {
+      display: block;
+      font-size: 11px;
+      color: #555;
+      margin-bottom: 3px;
+      margin-top: 8px;
+    }
+    #add-form label:first-child { margin-top: 0; }
+
+    #add-form input {
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 13px;
+      outline: none;
+    }
+    #add-form input:focus { border-color: #1a73e8; }
+
+    .hint {
+      font-size: 10px;
+      color: #aaa;
+      margin-top: 3px;
+    }
+
+    #btn-add {
+      margin-top: 10px;
+      width: 100%;
+      padding: 7px;
+      background: #1a73e8;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 13px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    #btn-add:hover { background: #1558b0; }
+
+    /* Save banner */
+    #save-banner {
+      display: none;
+      background: #e6f4ea;
+      color: #137333;
+      border: 1px solid #a8d5b5;
+      border-radius: 4px;
+      padding: 6px 10px;
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .empty-state {
+      color: #aaa;
+      text-align: center;
+      padding: 10px 0;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <header>PrefixLinker</header>
+  <main>
+    <h2>등록된 규칙</h2>
+    <ul id="rule-list"></ul>
+
+    <h2>새 규칙 추가</h2>
+    <div id="add-form">
+      <label for="inp-prefix">Prefix</label>
+      <input id="inp-prefix" type="text" placeholder="예) CSWPR-" />
+
+      <label for="inp-url">URL 템플릿</label>
+      <input id="inp-url" type="text" placeholder="예) https://www.google.com/search?q={match}" />
+      <div class="hint"><code>{match}</code> 위치에 매칭된 텍스트가 삽입됩니다.</div>
+
+      <button id="btn-add">추가</button>
+    </div>
+
+    <div id="save-banner">저장되었습니다. 페이지를 새로고침하면 적용됩니다.</div>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>
