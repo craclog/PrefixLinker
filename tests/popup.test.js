@@ -39,11 +39,11 @@ global.chrome = {
 const POPUP_HTML = `
   <ul id="rule-list"></ul>
   <div id="add-form">
-    <div id="edit-label">규칙 수정 중</div>
+    <div id="edit-label">Editing rule</div>
     <input id="inp-prefix" type="text" />
     <input id="inp-url"    type="text" />
-    <button id="btn-add">추가</button>
-    <button id="btn-cancel">취소</button>
+    <button id="btn-add">Add</button>
+    <button id="btn-cancel">Cancel</button>
   </div>
   <div id="save-banner"></div>
 `;
@@ -125,7 +125,7 @@ describe('popup: edit mode — entering', () => {
 
   test('clicking edit changes the submit button label to 저장', () => {
     document.querySelectorAll('.btn-edit')[0].click();
-    expect(document.getElementById('btn-add').textContent).toBe('저장');
+    expect(document.getElementById('btn-add').textContent).toBe('Save');
   });
 
   test('clicking edit adds the edit-mode CSS class to the form', () => {
@@ -151,7 +151,7 @@ describe('popup: edit mode — saving', () => {
     document.getElementById('inp-url').value = 'https://new-url.com/{match}';
     document.getElementById('btn-add').click();
 
-    expect(document.getElementById('btn-add').textContent).toBe('추가');
+    expect(document.getElementById('btn-add').textContent).toBe('Add');
   });
 
   test('saving exits edit mode: edit-mode class is removed', () => {
@@ -208,7 +208,7 @@ describe('popup: edit mode — cancel', () => {
   test('cancel reverts the button label to 추가', () => {
     document.querySelectorAll('.btn-edit')[0].click();
     document.getElementById('btn-cancel').click();
-    expect(document.getElementById('btn-add').textContent).toBe('추가');
+    expect(document.getElementById('btn-add').textContent).toBe('Add');
   });
 
   test('cancel removes the edit-mode class', () => {
@@ -226,7 +226,7 @@ describe('popup: edit mode — delete while editing', () => {
     document.querySelectorAll('.btn-delete')[0].click();
 
     expect(_rules).toHaveLength(1);
-    expect(document.getElementById('btn-add').textContent).toBe('추가');
+    expect(document.getElementById('btn-add').textContent).toBe('Add');
     expect(document.getElementById('add-form').classList.contains('edit-mode')).toBe(false);
   });
 
@@ -235,6 +235,6 @@ describe('popup: edit mode — delete while editing', () => {
     document.querySelectorAll('.btn-delete')[1].click();    // deleting RULE_B
 
     expect(_rules).toHaveLength(1);
-    expect(document.getElementById('btn-add').textContent).toBe('저장'); // still editing
+    expect(document.getElementById('btn-add').textContent).toBe('Save'); // still editing
   });
 });

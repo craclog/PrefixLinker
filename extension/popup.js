@@ -9,7 +9,7 @@ const addForm    = document.getElementById('add-form');
 const saveBanner = document.getElementById('save-banner');
 
 let rules = [];
-let editingIdx = null; // null = 추가 모드, number = 수정 모드
+let editingIdx = null; // null = add mode, number = edit mode
 
 // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -17,7 +17,7 @@ function render() {
   ruleList.innerHTML = '';
 
   if (rules.length === 0) {
-    ruleList.innerHTML = '<li class="empty-state">등록된 규칙이 없습니다.</li>';
+    ruleList.innerHTML = '<li class="empty-state">No rules yet.</li>';
     return;
   }
 
@@ -29,8 +29,8 @@ function render() {
         <div class="url-template">${escapeHtml(rule.urlTemplate)}</div>
       </div>
       <div class="actions">
-        <button class="btn-edit"   data-action="edit"   data-idx="${idx}" title="수정">✎</button>
-        <button class="btn-delete" data-action="delete" data-idx="${idx}" title="삭제">✕</button>
+        <button class="btn-edit"   data-action="edit"   data-idx="${idx}" title="Edit">✎</button>
+        <button class="btn-delete" data-action="delete" data-idx="${idx}" title="Delete">✕</button>
       </div>
     `;
     ruleList.appendChild(li);
@@ -41,7 +41,7 @@ function enterEditMode(idx) {
   editingIdx = idx;
   inpPrefix.value = rules[idx].prefix;
   inpUrl.value    = rules[idx].urlTemplate;
-  btnAdd.textContent = '저장';
+  btnAdd.textContent = 'Save';
   addForm.classList.add('edit-mode');
   inpPrefix.focus();
 }
@@ -50,7 +50,7 @@ function exitEditMode() {
   editingIdx = null;
   inpPrefix.value = '';
   inpUrl.value    = '';
-  btnAdd.textContent = '추가';
+  btnAdd.textContent = 'Add';
   addForm.classList.remove('edit-mode');
 }
 
@@ -81,14 +81,14 @@ btnAdd.addEventListener('click', () => {
   if (editingIdx !== null) {
     // 수정 모드: 다른 규칙과 prefix 중복 검사 (자기 자신 제외)
     const duplicate = rules.some((r, i) => i !== editingIdx && r.prefix === prefix);
-    if (duplicate) { alert(`"${prefix}" 규칙이 이미 존재합니다.`); return; }
+    if (duplicate) { alert(`A rule with prefix "${prefix}" already exists.`); return; }
 
     saveRules(updateRule(rules, editingIdx, { prefix, urlTemplate }));
     exitEditMode();
   } else {
-    // 추가 모드
+    // add mode
     if (rules.some(r => r.prefix === prefix)) {
-      alert(`"${prefix}" 규칙이 이미 존재합니다.`);
+      alert(`A rule with prefix "${prefix}" already exists.`);
       return;
     }
     saveRules([...rules, { prefix, urlTemplate }]);
@@ -114,7 +114,7 @@ ruleList.addEventListener('click', (e) => {
   }
 });
 
-// Allow Enter key in the URL field to trigger 추가/저장.
+// Allow Enter key in the URL field to trigger Add / Save.
 inpUrl.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') btnAdd.click();
 });

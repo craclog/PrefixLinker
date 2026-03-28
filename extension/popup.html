@@ -174,25 +174,25 @@
 <body>
   <header>PrefixLinker</header>
   <main>
-    <h2>등록된 규칙</h2>
+    <h2>Rules</h2>
     <ul id="rule-list"></ul>
 
-    <h2>새 규칙 추가</h2>
+    <h2>Add Rule</h2>
     <div id="add-form">
-      <div id="edit-label">규칙 수정 중</div>
+      <div id="edit-label">Editing rule</div>
 
       <label for="inp-prefix">Prefix</label>
-      <input id="inp-prefix" type="text" placeholder="예) CSWPR-" />
+      <input id="inp-prefix" type="text" placeholder="e.g. CSWPR-" />
 
-      <label for="inp-url">URL 템플릿</label>
-      <input id="inp-url" type="text" placeholder="예) https://www.google.com/search?q={match}" />
-      <div class="hint"><code>{match}</code> 위치에 매칭된 텍스트가 삽입됩니다.</div>
+      <label for="inp-url">URL Template</label>
+      <input id="inp-url" type="text" placeholder="e.g. https://www.google.com/search?q={match}" />
+      <div class="hint"><code>{match}</code> will be replaced with the matched text.</div>
 
-      <button id="btn-add">추가</button>
-      <button id="btn-cancel">취소</button>
+      <button id="btn-add">Add</button>
+      <button id="btn-cancel">Cancel</button>
     </div>
 
-    <div id="save-banner">저장되었습니다. 페이지를 새로고침하면 적용됩니다.</div>
+    <div id="save-banner">Saved. Reload the page to apply changes.</div>
   </main>
   <script src="core.js"></script>
   <script src="popup.js"></script>
