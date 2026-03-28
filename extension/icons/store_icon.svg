@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <!-- Background gradient: bright blue → deep blue -->
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="128" y2="128" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#4a90e2"/>
+      <stop offset="100%" stop-color="#1255cc"/>
+    </linearGradient>
+
+    <!-- Subtle inner glow at top to give a "lit from above" feel -->
+    <radialGradient id="topGlow" cx="50%" cy="0%" r="70%">
+      <stop offset="0%"   stop-color="rgba(255,255,255,0.18)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+    </radialGradient>
+
+    <!-- Drop shadow for the chain links -->
+    <filter id="linkShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="rgba(0,0,0,0.30)"/>
+    </filter>
+
+    <!-- Left link clipped so right link appears to pass over it -->
+    <clipPath id="leftClip">
+      <rect x="0" y="0" width="67" height="128"/>
+    </clipPath>
+  </defs>
+
+  <!-- Rounded square background -->
+  <rect width="128" height="128" rx="24" fill="url(#bgGrad)"/>
+
+  <!-- Top-glow overlay -->
+  <rect width="128" height="128" rx="24" fill="url(#topGlow)"/>
+
+  <!-- Chain links -->
+  <g filter="url(#linkShadow)">
+    <!-- Left link (clipped at centre of overlap) -->
+    <rect x="9" y="40" width="68" height="48" rx="24"
+          fill="none" stroke="white" stroke-width="13"
+          clip-path="url(#leftClip)"/>
+    <!-- Right link (renders on top) -->
+    <rect x="51" y="40" width="68" height="48" rx="24"
+          fill="none" stroke="white" stroke-width="13"/>
+  </g>
+</svg>
