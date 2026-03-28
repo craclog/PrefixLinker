@@ -5,6 +5,7 @@ const {
   generateUrl,
   splitTextByPattern,
   isAlreadyProcessed,
+  updateRule,
 } = require('../src/core');
 
 // ─────────────────────────────────────────────
@@ -240,5 +241,50 @@ describe('isAlreadyProcessed', () => {
 
   test('returns false for element without closest method', () => {
     expect(isAlreadyProcessed({}, ATTR)).toBe(false);
+  });
+});
+
+// ─────────────────────────────────────────────
+// updateRule
+// ─────────────────────────────────────────────
+describe('updateRule', () => {
+  const base = [
+    { prefix: 'A-', urlTemplate: 'https://a.com/{match}' },
+    { prefix: 'B-', urlTemplate: 'https://b.com/{match}' },
+    { prefix: 'C-', urlTemplate: 'https://c.com/{match}' },
+  ];
+
+  test('returns a new array with the rule at index replaced', () => {
+    const updated = updateRule(base, 1, { prefix: 'B2-', urlTemplate: 'https://b2.com/{match}' });
+    expect(updated[1]).toEqual({ prefix: 'B2-', urlTemplate: 'https://b2.com/{match}' });
+    expect(updated).toHaveLength(3);
+  });
+
+  test('does not mutate the original array', () => {
+    const copy = [...base];
+    updateRule(base, 0, { prefix: 'X-', urlTemplate: 'https://x.com/{match}' });
+    expect(base).toEqual(copy);
+  });
+
+  test('leaves other rules unchanged', () => {
+    const updated = updateRule(base, 1, { prefix: 'B2-', urlTemplate: 'https://b2.com/{match}' });
+    expect(updated[0]).toEqual(base[0]);
+    expect(updated[2]).toEqual(base[2]);
+  });
+
+  test('works for the first index', () => {
+    const updated = updateRule(base, 0, { prefix: 'Z-', urlTemplate: 'https://z.com/{match}' });
+    expect(updated[0].prefix).toBe('Z-');
+  });
+
+  test('works for the last index', () => {
+    const updated = updateRule(base, 2, { prefix: 'Z-', urlTemplate: 'https://z.com/{match}' });
+    expect(updated[2].prefix).toBe('Z-');
+  });
+
+  test('returns original array unchanged for out-of-range index', () => {
+    const updated = updateRule(base, 99, { prefix: 'Z-', urlTemplate: 'https://z.com/{match}' });
+    expect(updated).toEqual(base);
+    expect(updated).not.toBe(base); // still a new array
   });
 });

@@ -77,6 +77,19 @@ function splitTextByPattern(text, pattern) {
 }
 
 /**
+ * Return a new rules array with the entry at `index` replaced by `updatedRule`.
+ * If `index` is out of range the original contents are preserved (still a new array).
+ *
+ * @param {Array<{prefix:string, urlTemplate:string}>} rules
+ * @param {number} index
+ * @param {{prefix:string, urlTemplate:string}} updatedRule
+ * @returns {Array<{prefix:string, urlTemplate:string}>}
+ */
+function updateRule(rules, index, updatedRule) {
+  return rules.map((rule, i) => (i === index ? updatedRule : rule));
+}
+
+/**
  * Return true when the element (or any ancestor) has already been processed
  * by PrefixLinker, so we never double-linkify a node.
  *
@@ -93,6 +106,6 @@ function isAlreadyProcessed(element, processedAttr) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     escapeRegex, buildPattern, findMatchingRule, generateUrl,
-    splitTextByPattern, isAlreadyProcessed,
+    splitTextByPattern, isAlreadyProcessed, updateRule,
   };
 }
