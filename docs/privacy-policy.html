@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PrefixLinker — Privacy Policy</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      max-width: 720px;
+      margin: 60px auto;
+      padding: 0 24px;
+      color: #222;
+      line-height: 1.7;
+    }
+    h1 { color: #1a73e8; }
+    h2 { margin-top: 2em; border-bottom: 1px solid #eee; padding-bottom: 6px; }
+    p, li { margin: 0.5em 0; }
+    a { color: #1a73e8; }
+    .updated { color: #888; font-size: 0.9em; }
+  </style>
+</head>
+<body>
+
+<h1>PrefixLinker — Privacy Policy</h1>
+<p class="updated">Last updated: March 2026</p>
+
+<h2>Overview</h2>
+<p>
+  PrefixLinker is a Chrome extension that converts user-defined prefix patterns
+  (e.g. <code>CSWPR-12345</code>) into clickable links on web pages.
+  This policy explains what data the extension handles and how.
+</p>
+
+<h2>Data We Collect</h2>
+<p>
+  PrefixLinker collects and stores only the rules you explicitly create:
+</p>
+<ul>
+  <li><strong>Prefix</strong> — the text pattern you want to detect (e.g. <code>CSWPR-</code>)</li>
+  <li><strong>URL Template</strong> — the link destination you configure (e.g. <code>https://www.google.com/search?q={match}</code>)</li>
+</ul>
+<p>No other data is collected. The extension does not read, record, or transmit the content of web pages you visit.</p>
+
+<h2>How Your Data Is Stored</h2>
+<p>
+  Rules are stored exclusively using <strong>Chrome's built-in
+  <code>chrome.storage.sync</code> API</strong>. This means:
+</p>
+<ul>
+  <li>Data is saved locally in your browser.</li>
+  <li>If you are signed in to Chrome, Google may sync this data to your other
+      devices through your Google account, subject to
+      <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google's Privacy Policy</a>.</li>
+</ul>
+<p>
+  PrefixLinker does not operate its own servers. No data is ever sent to the
+  extension developer or any third party.
+</p>
+
+<h2>Permissions Explained</h2>
+<ul>
+  <li>
+    <strong>storage</strong> — required to save and sync your prefix/URL rules
+    across browser sessions and devices.
+  </li>
+  <li>
+    <strong>Access to all websites (<code>&lt;all_urls&gt;</code>)</strong> —
+    required because prefix patterns can appear on any website. The extension
+    only scans visible text for matching patterns and injects anchor elements
+    for matches. It does not collect, log, or transmit any page content.
+  </li>
+</ul>
+
+<h2>Remote Code</h2>
+<p>
+  PrefixLinker does not load or execute any code from remote servers.
+  All scripts are bundled inside the extension package and reviewed at
+  install time.
+</p>
+
+<h2>Children's Privacy</h2>
+<p>
+  This extension is not directed at children under 13. It does not knowingly
+  collect any personal information from anyone.
+</p>
+
+<h2>Changes to This Policy</h2>
+<p>
+  If this policy changes, the updated version will be published at this URL
+  and the "Last updated" date above will be revised.
+</p>
+
+<h2>Contact</h2>
+<p>
+  Questions about this privacy policy can be sent to
+  <a href="mailto:craclog@gmail.com">craclog@gmail.com</a>.
+</p>
+
+</body>
+</html>
