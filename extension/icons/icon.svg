@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- Blue rounded background matching popup color -->
+  <rect width="128" height="128" rx="22" fill="#1a73e8"/>
+
+  <defs>
+    <!-- Left link is clipped so the right link appears to pass over it -->
+    <clipPath id="left-link-clip">
+      <rect x="0" y="0" width="65" height="128"/>
+    </clipPath>
+  </defs>
+
+  <!-- Left chain link (pill outline) -->
+  <rect x="10" y="43" width="62" height="42" rx="21"
+        fill="none" stroke="white" stroke-width="11"
+        clip-path="url(#left-link-clip)"/>
+
+  <!-- Right chain link (pill outline, renders on top) -->
+  <rect x="56" y="43" width="62" height="42" rx="21"
+        fill="none" stroke="white" stroke-width="11"/>
+</svg>
