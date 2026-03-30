@@ -8,9 +8,11 @@
   'use strict';
 
   // Tags whose text content must never be modified.
+  // NOTE: PRE is intentionally excluded — commit-message containers in tools
+  // like Gerrit render text inside <pre> elements and should be linkified.
   const SKIP_TAGS = new Set([
     'A', 'SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA', 'INPUT',
-    'SELECT', 'BUTTON', 'CODE', 'PRE',
+    'SELECT', 'BUTTON', 'CODE',
   ]);
 
   // Marker attribute to avoid re-processing nodes we already touched.
@@ -18,6 +20,8 @@
 
   /**
    * Walk every text node beneath `root` and linkify matches.
+   * Also recurses into open shadow roots so that web components
+   * (e.g. Gerrit's gr-commit-message) have their text linkified too.
    *
    * @param {Node} root
    * @param {Array<{prefix:string, urlTemplate:string}>} rules
@@ -46,6 +50,14 @@
     }
 
     textNodes.forEach(textNode => linkifyTextNode(textNode, rules, pattern));
+
+    // Recurse into open shadow roots (querySelectorAll does not pierce shadow
+    // boundaries, so we must check each element's .shadowRoot explicitly).
+    if (root.querySelectorAll) {
+      Array.from(root.querySelectorAll('*')).forEach(el => {
+        if (el.shadowRoot) walkAndLinkify(el.shadowRoot, rules, pattern);
+      });
+    }
   }
 
   /**
@@ -98,14 +110,69 @@
   // Active observer reference — kept so we can disconnect on rule updates.
   let observer = null;
 
+  // Track shadow roots we are already observing to avoid duplicate observers.
+  const _observedShadowRoots = new WeakSet();
+  // All shadow-root MutationObserver instances — disconnected on rule updates.
+  let _shadowObservers = [];
+
+  /**
+   * Start a MutationObserver on a single shadow root and track it.
+   * Newly added nodes inside the shadow root are processed and their own
+   * shadow roots are observed recursively.
+   *
+   * @param {ShadowRoot} shadowRoot
+   * @param {Array} rules
+   * @param {RegExp} pattern
+   */
+  function _observeShadowRoot(shadowRoot, rules, pattern) {
+    if (_observedShadowRoots.has(shadowRoot)) return;
+    _observedShadowRoots.add(shadowRoot);
+
+    const obs = new MutationObserver((mutations) => {
+      mutations.forEach(({ addedNodes }) => {
+        addedNodes.forEach(node => {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            if (!node.isConnected) return;
+            walkAndLinkify(node, rules, pattern);
+            _observeElementShadowRoots(node, rules, pattern);
+          } else if (node.nodeType === Node.TEXT_NODE) {
+            linkifyTextNode(node, rules, pattern);
+          }
+        });
+      });
+    });
+    obs.observe(shadowRoot, { childList: true, subtree: true });
+    _shadowObservers.push(obs);
+  }
+
+  /**
+   * Set up MutationObservers for all shadow roots found within `el`
+   * (including `el` itself). Already-observed roots are skipped.
+   *
+   * @param {Element|ShadowRoot} el
+   * @param {Array} rules
+   * @param {RegExp} pattern
+   */
+  function _observeElementShadowRoots(el, rules, pattern) {
+    if (el.shadowRoot) _observeShadowRoot(el.shadowRoot, rules, pattern);
+    if (el.querySelectorAll) {
+      Array.from(el.querySelectorAll('*')).forEach(child => {
+        if (child.shadowRoot) _observeShadowRoot(child.shadowRoot, rules, pattern);
+      });
+    }
+  }
+
   /**
    * Start a MutationObserver that linkifies newly added nodes in real time.
+   * Also watches existing and future shadow roots for dynamic changes.
    *
    * @param {Array} rules
    * @param {RegExp} pattern
    */
   function startObserver(rules, pattern) {
     if (observer) observer.disconnect();
+    _shadowObservers.forEach(obs => obs.disconnect());
+    _shadowObservers = [];
 
     observer = new MutationObserver((mutations) => {
       mutations.forEach(({ addedNodes }) => {
@@ -114,6 +181,7 @@
             // Guard: element may have been removed before this callback ran.
             if (!node.isConnected) return;
             walkAndLinkify(node, rules, pattern);
+            _observeElementShadowRoots(node, rules, pattern);
           } else if (node.nodeType === Node.TEXT_NODE) {
             linkifyTextNode(node, rules, pattern);
           }
@@ -122,6 +190,10 @@
     });
 
     observer.observe(document.body, { childList: true, subtree: true });
+
+    // Set up observers for shadow roots that already exist in the page
+    // (e.g. Gerrit components rendered before this script ran).
+    _observeElementShadowRoots(document.body, rules, pattern);
   }
 
   /**

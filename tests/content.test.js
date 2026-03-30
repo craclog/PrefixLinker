@@ -154,4 +154,55 @@ describe('content: walkAndLinkify', () => {
     walkAndLinkify(document.body, RULES, PATTERN);
     expect(document.querySelector('.prefix-linker-link')).toBeNull();
   });
+
+  test('linkifies text inside <pre> (Gerrit commit message format)', () => {
+    const { walkAndLinkify } = contentExports;
+    document.body.innerHTML =
+      '<pre>fix: resolve issue\n\nSee CSWPR-77 for details.</pre>';
+    walkAndLinkify(document.body, RULES, PATTERN);
+    const link = document.querySelector('.prefix-linker-link');
+    expect(link).not.toBeNull();
+    expect(link.textContent).toBe('CSWPR-77');
+  });
+
+  test('linkifies text inside open shadow DOM (Gerrit gr-commit-message)', () => {
+    const { walkAndLinkify } = contentExports;
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const shadow = host.attachShadow({ mode: 'open' });
+    shadow.innerHTML = '<div>커밋 메시지: CSWPR-42</div>';
+
+    walkAndLinkify(document.body, RULES, PATTERN);
+
+    const link = shadow.querySelector('.prefix-linker-link');
+    expect(link).not.toBeNull();
+    expect(link.textContent).toBe('CSWPR-42');
+  });
+
+  test('linkifies <pre> inside open shadow DOM (Gerrit raw commit text)', () => {
+    const { walkAndLinkify } = contentExports;
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const shadow = host.attachShadow({ mode: 'open' });
+    shadow.innerHTML = '<pre>fix: CSWPR-100\n\nAlso closes CSWPR-101.</pre>';
+
+    walkAndLinkify(document.body, RULES, PATTERN);
+
+    const links = shadow.querySelectorAll('.prefix-linker-link');
+    expect(links).toHaveLength(2);
+    expect(links[0].textContent).toBe('CSWPR-100');
+    expect(links[1].textContent).toBe('CSWPR-101');
+  });
+
+  test('does not linkify text inside <code> even in shadow DOM', () => {
+    const { walkAndLinkify } = contentExports;
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const shadow = host.attachShadow({ mode: 'open' });
+    shadow.innerHTML = '<code>const x = "CSWPR-CODE";</code>';
+
+    walkAndLinkify(document.body, RULES, PATTERN);
+
+    expect(shadow.querySelector('.prefix-linker-link')).toBeNull();
+  });
 });

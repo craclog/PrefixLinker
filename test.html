@@ -94,6 +94,53 @@
   <p>CSWPR- (suffix 없어서 매칭 안 됨)</p>
 </div>
 
+<!-- ── Gerrit 커밋 메시지 시뮬레이션 (Shadow DOM) ─── -->
+<h2>Gerrit 커밋 메시지 (Shadow DOM)</h2>
+
+<div class="case">
+  <div class="label">Shadow DOM &lt;div&gt; 내 커밋 메시지 — 링크로 변환돼야 함</div>
+  <div id="gerrit-commit-div"></div>
+</div>
+
+<div class="case">
+  <div class="label">Shadow DOM &lt;pre&gt; 내 커밋 메시지 — 링크로 변환돼야 함</div>
+  <div id="gerrit-commit-pre"></div>
+</div>
+
+<div class="case">
+  <div class="label">Shadow DOM 동적 추가 (버튼 클릭 후) — 링크로 변환돼야 함</div>
+  <button onclick="addGerritDynamic()">Gerrit 동적 커밋 추가</button>
+  <div id="gerrit-dynamic-host" style="margin-top:8px;"></div>
+</div>
+
+<script>
+  // Simulate Gerrit's gr-commit-message web component (open shadow DOM)
+  (function () {
+    // 1. Commit message in a plain <div> inside shadow DOM
+    var host1 = document.getElementById('gerrit-commit-div');
+    var shadow1 = host1.attachShadow({ mode: 'open' });
+    shadow1.innerHTML = '<div>커밋 메시지: CSWPR-5001 수정 건 (Shadow DOM div)</div>';
+
+    // 2. Commit message in a <pre> inside shadow DOM (Gerrit uses <pre> for
+    //    the raw commit message text in gr-commit-message)
+    var host2 = document.getElementById('gerrit-commit-pre');
+    var shadow2 = host2.attachShadow({ mode: 'open' });
+    shadow2.innerHTML =
+      '<pre>fix: resolve login issue\n\nThis fixes CSWPR-5002.\nSee also CSWPR-5003 for the backend side.</pre>';
+  })();
+
+  function addGerritDynamic() {
+    var dynamicHost = document.getElementById('gerrit-dynamic-host');
+    if (dynamicHost.shadowRoot) {
+      dynamicHost.shadowRoot.innerHTML =
+        '<div>동적 추가 커밋: CSWPR-5999 hotfix</div>';
+      return;
+    }
+    var shadow = dynamicHost.attachShadow({ mode: 'open' });
+    shadow.innerHTML = '<div>동적 추가 커밋: CSWPR-5999 hotfix</div>';
+  }
+</script>
+
 <!-- ── 동적 콘텐츠 ────────────────────────────────── -->
 <h2>동적 콘텐츠 (버튼 클릭 후 추가)</h2>
 <button onclick="addDynamic()">동적 콘텐츠 추가</button>
@@ -101,7 +148,7 @@
 
 <script>
   function addDynamic() {
-    const div = document.getElementById('dynamic-area');
+    var div = document.getElementById('dynamic-area');
     div.innerHTML = '<p>동적으로 추가된 텍스트: CSWPR-9876</p>';
   }
 </script>
@@ -134,6 +181,20 @@
     // 3. Input values must not be modified.
     const inputEl = document.querySelector('input[value="CSWPR-INPUT"]');
     check('input 값이 변경되지 않음', inputEl && inputEl.value === 'CSWPR-INPUT');
+
+    // 4. Shadow DOM (div) — CSWPR-5001 must be linkified inside shadow root.
+    const shadowDivHost = document.getElementById('gerrit-commit-div');
+    if (shadowDivHost && shadowDivHost.shadowRoot) {
+      const shadowLinks = shadowDivHost.shadowRoot.querySelectorAll('.prefix-linker-link');
+      check('Shadow DOM (div) 내 커밋 메시지 링크 생성됨', shadowLinks.length > 0);
+    }
+
+    // 5. Shadow DOM (pre) — CSWPR-5002 and CSWPR-5003 must be linkified.
+    const shadowPreHost = document.getElementById('gerrit-commit-pre');
+    if (shadowPreHost && shadowPreHost.shadowRoot) {
+      const shadowPreLinks = shadowPreHost.shadowRoot.querySelectorAll('.prefix-linker-link');
+      check('Shadow DOM (pre) 내 커밋 메시지 링크 생성됨 (2개 이상)', shadowPreLinks.length >= 2);
+    }
 
     // Render
     if (links.length === 0) {
