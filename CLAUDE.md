@@ -8,15 +8,25 @@
 
 ```
 prefixLinker/
-├── src/core.js           # 순수 함수 모음 (DOM 의존 없음, Jest로 테스트)
-├── tests/core.test.js    # 단위 테스트 (Jest)
+├── src/core.js               # 순수 함수 모음 (DOM 의존 없음, Jest로 테스트)
+├── tests/
+│   ├── core.test.js          # core.js 단위 테스트
+│   ├── content.test.js       # content.js 단위 테스트 (jsdom)
+│   └── popup.test.js         # popup.js 단위 테스트
 ├── extension/
-│   ├── manifest.json     # MV3 manifest
-│   ├── core.js           # src/core.js 복사본 (content script에서 사용)
-│   ├── content.js        # DOM 텍스트 노드 스캔 및 링크 교체
-│   ├── popup.html        # 규칙 관리 UI
-│   └── popup.js          # popup 로직 (chrome.storage.sync)
-└── test.html             # 브라우저 통합 테스트 페이지
+│   ├── manifest.json         # MV3 manifest
+│   ├── core.js               # src/core.js 복사본 (content script에서 사용)
+│   ├── shadow-shim.js        # MAIN world 스크립트 — 페이지의 attachShadow를 패치해 shadow root 생성을 content.js에 알림
+│   ├── content.js            # DOM 텍스트 노드 스캔 및 링크 교체, shadow DOM 관찰
+│   ├── background.js         # service worker (MV3)
+│   ├── popup.html            # 규칙 관리 UI
+│   ├── popup.js              # popup 로직 (chrome.storage.sync)
+│   └── icons/                # 16·48·128px PNG 아이콘
+├── .github/workflows/
+│   └── release.yml           # v* 태그 push 시 GitHub Release 자동 생성
+├── docs/
+│   └── privacy-policy.html   # Chrome Web Store 개인정보처리방침
+└── test.html                 # 브라우저 통합 테스트 페이지 (shadow DOM 포함)
 ```
 
 > `src/core.js`를 수정하면 반드시 `extension/core.js`에도 동기화한다 (`npm run build`).
@@ -69,6 +79,10 @@ npm run build         # src/core.js → extension/core.js 동기화
 - **content.js는 DOM 조작만.** 비즈니스 로직은 core.js 함수를 호출한다.
 - `data-prefixlinker-done` 속성으로 이미 처리된 노드를 표시해 중복 처리를 방지한다.
 - `MutationObserver`로 동적으로 추가된 노드도 실시간으로 처리한다.
+- **Shadow DOM 전략**:
+  - 정적 shadow root (페이지 로드 시 이미 존재) → `init()` 의 `walkAndLinkify(document.body)` 가 `querySelectorAll('*')` 재귀로 처리.
+  - 동적 shadow root (페이지 스크립트가 `attachShadow` 호출) → `shadow-shim.js` (MAIN world) 가 이를 감지해 `__prefixlinker_shadowroot` 이벤트를 발생시키고, `content.js` 리스너가 즉시 MutationObserver를 등록.
+  - content.js의 `_patchAttachShadow` 는 jsdom(테스트) 환경 및 동일 world 호출에 대한 fallback.
 
 ## 커밋 규칙
 
