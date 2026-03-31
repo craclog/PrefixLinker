@@ -110,6 +110,16 @@ Signed-off-by: Kiyoung Yoon <craclog@gmail.com>
 | 버그 수정, 성능 개선 | **patch** `1.1.0 → 1.1.1` | 크래시 수정, 가드 추가 |
 | 기존 동작이 바뀌는 큰 변경 | **major** `1.1.0 → 2.0.0` | 스토리지 구조 변경 |
 
+### 버전 bump 후 반드시 태그 생성 및 푸시
+
+버전 bump 커밋을 올린 뒤에는 **항상** 아래 명령어로 태그를 생성하고 push한다.
+GitHub Actions 릴리즈 워크플로우는 `v*` 태그 push를 트리거로 동작하므로,
+태그를 push하지 않으면 릴리즈가 생성되지 않는다.
+
+```bash
+npm run release   # git tag v<version> && git push origin v<version>
+```
+
 ### 버전 커밋 예시
 
 ```
