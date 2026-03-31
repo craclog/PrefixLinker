@@ -49,6 +49,25 @@ function loadContent(initialRules = DEFAULT_RULES, html = '') {
   contentExports = require('../extension/content.js') || {};
 }
 
+/**
+ * Simulates the test.html page-load scenario:
+ * 1. Set up light-DOM HTML (shadow host elements etc.)
+ * 2. Run setupFn to attach shadow roots (before content script loads)
+ * 3. Load content.js — init() fires immediately via the sync mock
+ *
+ * This mirrors what happens in the browser: page scripts create shadow DOM
+ * before the content script's chrome.storage.sync.get callback fires.
+ */
+function loadContentWithShadow(html, setupFn, rules = DEFAULT_RULES) {
+  document.body.innerHTML = html;
+  setupFn && setupFn();
+  jest.resetModules();
+  jest.clearAllMocks();
+  Object.assign(global, require('../src/core'));
+  _rules = [...rules];
+  contentExports = require('../extension/content.js') || {};
+}
+
 const RULES   = DEFAULT_RULES;
 const PATTERN = core.buildPattern(RULES);
 
@@ -354,5 +373,148 @@ describe('content: dynamic shadow root creation after init (addGerritDynamic sce
     const links = innerShadow.querySelectorAll('.prefix-linker-link');
     expect(links).toHaveLength(1);
     expect(links[0].textContent).toBe('CSWPR-7777');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Tests mirroring test.html scenarios
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ── test.html 정상 케이스 (should be linkified) ──────────────────────────────
+
+describe('content: test.html — 정상 케이스', () => {
+  const BOTH_RULES = [
+    { prefix: 'CSWPR-', urlTemplate: 'https://www.google.com/search?q={match}' },
+    { prefix: 'JIRA-',  urlTemplate: 'https://jira.example.com/browse/{match}' },
+  ];
+
+  test('단일 매칭: Korean sentence with CSWPR-12345', () => {
+    loadContent(DEFAULT_RULES, '<p>이슈 CSWPR-12345 를 확인해주세요.</p>');
+    const link = document.querySelector('.prefix-linker-link');
+    expect(link).not.toBeNull();
+    expect(link.textContent).toBe('CSWPR-12345');
+  });
+
+  test('문장 앞: match at start of sentence', () => {
+    loadContent(DEFAULT_RULES, '<p>CSWPR-1 이 먼저 처리돼야 합니다.</p>');
+    const link = document.querySelector('.prefix-linker-link');
+    expect(link).not.toBeNull();
+    expect(link.textContent).toBe('CSWPR-1');
+  });
+
+  test('문장 끝: match at end of sentence', () => {
+    loadContent(DEFAULT_RULES, '<p>다음 스프린트로 이관: CSWPR-9999</p>');
+    const link = document.querySelector('.prefix-linker-link');
+    expect(link).not.toBeNull();
+    expect(link.textContent).toBe('CSWPR-9999');
+  });
+
+  test('한 줄에 여러 개: multiple matches in one line', () => {
+    loadContent(DEFAULT_RULES, '<p>CSWPR-100 과 CSWPR-200 은 중복입니다.</p>');
+    const links = document.querySelectorAll('.prefix-linker-link');
+    expect(links).toHaveLength(2);
+    expect(links[0].textContent).toBe('CSWPR-100');
+    expect(links[1].textContent).toBe('CSWPR-200');
+  });
+
+  test('여러 prefix 혼합: CSWPR and JIRA in same sentence', () => {
+    loadContent(BOTH_RULES, '<p>CSWPR-300 이 JIRA-450 에서 파생됐습니다.</p>');
+    const links = document.querySelectorAll('.prefix-linker-link');
+    expect(links).toHaveLength(2);
+    expect(links[0].textContent).toBe('CSWPR-300');
+    expect(links[1].textContent).toBe('JIRA-450');
+  });
+
+  test('한글 문장 내 매칭: Korean surrounding text does not affect match', () => {
+    loadContent(DEFAULT_RULES, '<p>이 버그는 티켓 CSWPR-777 을 통해 추적됩니다.</p>');
+    const link = document.querySelector('.prefix-linker-link');
+    expect(link).not.toBeNull();
+    expect(link.textContent).toBe('CSWPR-777');
+  });
+});
+
+// ── test.html 변환되면 안 되는 케이스 (should NOT be linkified) ───────────────
+
+describe('content: test.html — 변환되면 안 되는 케이스', () => {
+  test('이미 <a>: no double-wrap inside existing anchor', () => {
+    loadContent(DEFAULT_RULES,
+      '<a href="https://example.com">CSWPR-000 (이미 &lt;a&gt; 태그 안)</a>');
+    const anchor = document.querySelector('a[href="https://example.com"]');
+    expect(anchor.querySelector('a')).toBeNull();
+  });
+
+  test('textarea: text inside <textarea> is not linkified', () => {
+    loadContent(DEFAULT_RULES,
+      '<textarea rows="2" readonly>CSWPR-TEXTAREA</textarea>');
+    expect(document.querySelector('.prefix-linker-link')).toBeNull();
+  });
+
+  test('CSWPR- 단독 (suffix 없음): prefix without suffix must not match', () => {
+    loadContent(DEFAULT_RULES, '<p>CSWPR- (suffix 없어서 매칭 안 됨)</p>');
+    expect(document.querySelector('.prefix-linker-link')).toBeNull();
+  });
+});
+
+// ── test.html Gerrit Shadow DOM — init() 흐름으로 처리되는지 ─────────────────
+//
+// These tests replicate the exact test.html setup:
+//   inline page script → attachShadow → innerHTML
+// then the content script loads and init() calls walkAndLinkify.
+// If these pass, static shadow DOM works end-to-end through the init() path.
+
+describe('content: test.html — Shadow DOM (Gerrit commit message, init() flow)', () => {
+  let origAttachShadow;
+  beforeEach(() => { origAttachShadow = Element.prototype.attachShadow; });
+  afterEach(() => { Element.prototype.attachShadow = origAttachShadow; });
+
+  test('Shadow DOM <div>: CSWPR-5001 linkified by init() on page load', () => {
+    let shadow;
+    loadContentWithShadow(
+      '<div id="gerrit-commit-div"></div>',
+      () => {
+        const host = document.getElementById('gerrit-commit-div');
+        shadow = host.attachShadow({ mode: 'open' });
+        shadow.innerHTML =
+          '<div>커밋 메시지: CSWPR-5001 수정 건 (Shadow DOM div)</div>';
+      },
+    );
+
+    const link = shadow.querySelector('.prefix-linker-link');
+    expect(link).not.toBeNull();
+    expect(link.textContent).toBe('CSWPR-5001');
+  });
+
+  test('Shadow DOM <pre>: CSWPR-5002 and CSWPR-5003 linkified by init()', () => {
+    let shadow;
+    loadContentWithShadow(
+      '<div id="gerrit-commit-pre"></div>',
+      () => {
+        const host = document.getElementById('gerrit-commit-pre');
+        shadow = host.attachShadow({ mode: 'open' });
+        shadow.innerHTML =
+          '<pre>fix: resolve login issue\n\nThis fixes CSWPR-5002.\n' +
+          'See also CSWPR-5003 for the backend side.</pre>';
+      },
+    );
+
+    const links = shadow.querySelectorAll('.prefix-linker-link');
+    expect(links).toHaveLength(2);
+    expect(links[0].textContent).toBe('CSWPR-5002');
+    expect(links[1].textContent).toBe('CSWPR-5003');
+  });
+
+  test('Shadow DOM dynamic (addGerritDynamic): CSWPR-5999 linkified via shadow observer', async () => {
+    // Simulate: host is already in light DOM, then user clicks button → attachShadow + innerHTML
+    loadContentWithShadow('<div id="gerrit-dynamic-host"></div>');
+
+    const host = document.getElementById('gerrit-dynamic-host');
+    const shadow = host.attachShadow({ mode: 'open' });
+    shadow.innerHTML = '<div>동적 추가 커밋: CSWPR-5999 hotfix</div>';
+
+    await Promise.resolve(); // flush MutationObserver microtasks
+
+    const links = shadow.querySelectorAll('.prefix-linker-link');
+    expect(links).toHaveLength(1);
+    expect(links[0].textContent).toBe('CSWPR-5999');
   });
 });
