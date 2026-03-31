@@ -58,6 +58,14 @@
         if (el.shadowRoot) walkAndLinkify(el.shadowRoot, rules, pattern);
       });
     }
+
+    // When the MutationObserver fires during Gerrit SPA navigation, it calls
+    // walkAndLinkify with the newly added ELEMENT (e.g. <gr-change-view>), not
+    // its shadowRoot.  Polymer/LitElement components set up their shadow DOM
+    // synchronously, so the shadow DOM already has content at mutation time.
+    // querySelectorAll('*') above only walks the light DOM, so we must also
+    // recurse into root's own shadowRoot when root is a shadow-host element.
+    if (root.shadowRoot) walkAndLinkify(root.shadowRoot, rules, pattern);
   }
 
   /**

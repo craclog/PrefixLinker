@@ -206,3 +206,78 @@ describe('content: walkAndLinkify', () => {
     expect(shadow.querySelector('.prefix-linker-link')).toBeNull();
   });
 });
+
+// ── Tests: shadow-host element passed directly (Gerrit SPA navigation) ────────
+//
+// When a user clicks a link in Gerrit's related-change chain, Gerrit navigates
+// via history.pushState and re-renders the new change view inside <gr-app>'s
+// shadow DOM.  The MutationObserver fires with the new <gr-change-view> element
+// in addedNodes and calls walkAndLinkify(<gr-change-view>, rules, pattern).
+//
+// <gr-change-view> is itself a shadow host — commit-message text lives inside
+// its own shadow DOM.  Before the fix, walkAndLinkify only traversed the light
+// DOM and the shadow roots of light-DOM descendants, completely missing the
+// added element's own shadowRoot.
+
+describe('content: walkAndLinkify — shadow-host element (Gerrit SPA navigation)', () => {
+  beforeEach(() => loadContent());
+
+  test('linkifies text in shadow root when called with the shadow-host element directly', () => {
+    const { walkAndLinkify } = contentExports;
+    const host = document.createElement('div');
+    const shadowRoot = host.attachShadow({ mode: 'open' });
+    shadowRoot.innerHTML = '<span>Fix CSWPR-12345 in production</span>';
+    document.body.appendChild(host);
+
+    // Simulate what the MutationObserver callback does: it receives the added
+    // ELEMENT (not its shadowRoot).  The shadow DOM already has content at this
+    // point because Polymer/LitElement custom elements set up their shadow DOM
+    // synchronously before the element is connected to the DOM.
+    walkAndLinkify(host, RULES, PATTERN);
+
+    const links = shadowRoot.querySelectorAll('.prefix-linker-link');
+    expect(links).toHaveLength(1);
+    expect(links[0].textContent).toBe('CSWPR-12345');
+    expect(links[0].href).toBe('https://www.google.com/search?q=CSWPR-12345');
+  });
+
+  test('linkifies text in nested shadow DOMs when called with outermost shadow-host', () => {
+    // Mirrors Gerrit's <gr-app> → <gr-change-view> → <gr-commit-message> nesting.
+    const { walkAndLinkify } = contentExports;
+
+    const outer = document.createElement('div');
+    const outerShadow = outer.attachShadow({ mode: 'open' });
+
+    const inner = document.createElement('div');
+    const innerShadow = inner.attachShadow({ mode: 'open' });
+    innerShadow.innerHTML = '<span>CSWPR-999</span>';
+    outerShadow.appendChild(inner);
+    document.body.appendChild(outer);
+
+    walkAndLinkify(outer, RULES, PATTERN);
+
+    const links = innerShadow.querySelectorAll('.prefix-linker-link');
+    expect(links).toHaveLength(1);
+    expect(links[0].textContent).toBe('CSWPR-999');
+  });
+
+  test('light DOM text in the host itself is still linkified alongside shadow DOM', () => {
+    const { walkAndLinkify } = contentExports;
+    const host = document.createElement('div');
+    const shadowRoot = host.attachShadow({ mode: 'open' });
+    shadowRoot.innerHTML = '<p>CSWPR-111</p>';
+
+    // Light DOM slot content lives directly inside the host.
+    const slot = document.createElement('span');
+    slot.textContent = 'CSWPR-222';
+    host.appendChild(slot);
+    document.body.appendChild(host);
+
+    walkAndLinkify(host, RULES, PATTERN);
+
+    const shadowLinks = shadowRoot.querySelectorAll('.prefix-linker-link');
+    const lightLinks  = host.querySelectorAll(':not([data-prefixlinker-done]) .prefix-linker-link');
+    expect(shadowLinks).toHaveLength(1);
+    expect(lightLinks).toHaveLength(1);
+  });
+});
