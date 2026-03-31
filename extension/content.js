@@ -171,6 +171,37 @@
   }
 
   /**
+   * Monkey-patch Element.prototype.attachShadow so that every newly created
+   * open shadow root is immediately observed.
+   *
+   * This is necessary for cases where attachShadow is called on an element that
+   * is already in the light DOM AFTER startObserver has run — for example:
+   *   - test.html's addGerritDynamic() button
+   *   - Gerrit SPA navigation where <gr-change-view> is re-created in place
+   *
+   * The main MutationObserver (on document.body) does NOT cross shadow
+   * boundaries, so without this patch, content added to a dynamically created
+   * shadow root would never be linkified.
+   *
+   * The patch is installed once per page lifetime.  Because rules updates
+   * trigger window.location.reload(), a fresh content script (and a fresh
+   * patch with the latest rules/pattern) is always used.
+   *
+   * @param {Array} rules
+   * @param {RegExp} pattern
+   */
+  function _patchAttachShadow(rules, pattern) {
+    const _orig = Element.prototype.attachShadow;
+    Element.prototype.attachShadow = function (init) {
+      const shadowRoot = _orig.call(this, init);
+      if (init && init.mode === 'open') {
+        _observeShadowRoot(shadowRoot, rules, pattern);
+      }
+      return shadowRoot;
+    };
+  }
+
+  /**
    * Start a MutationObserver that linkifies newly added nodes in real time.
    * Also watches existing and future shadow roots for dynamic changes.
    *
@@ -181,6 +212,10 @@
     if (observer) observer.disconnect();
     _shadowObservers.forEach(obs => obs.disconnect());
     _shadowObservers = [];
+
+    // Intercept all future shadow root creations so they are observed
+    // regardless of when or where attachShadow is called.
+    _patchAttachShadow(rules, pattern);
 
     observer = new MutationObserver((mutations) => {
       mutations.forEach(({ addedNodes }) => {

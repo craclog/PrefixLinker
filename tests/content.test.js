@@ -281,3 +281,78 @@ describe('content: walkAndLinkify — shadow-host element (Gerrit SPA navigation
     expect(lightLinks).toHaveLength(1);
   });
 });
+
+// ── Tests: attachShadow called AFTER init (test.html addGerritDynamic scenario) ─
+//
+// The root cause of the Gerrit related-chain bug:
+//
+//   1. init() / startObserver() runs — no shadow root on the host element yet.
+//   2. User clicks a button (or Gerrit SPA navigates) → attachShadow() is called
+//      on an element that is already in the light DOM.
+//   3. MutationObserver on document.body does NOT observe shadow-root mutations,
+//      so content added to the new shadow root is never processed.
+//
+// Fix: monkey-patch Element.prototype.attachShadow so that every new open shadow
+// root gets a MutationObserver registered on it immediately at creation time.
+
+describe('content: dynamic shadow root creation after init (addGerritDynamic scenario)', () => {
+  let origAttachShadow;
+
+  beforeEach(() => {
+    // Save the real attachShadow before loadContent potentially patches it,
+    // so we can restore it after each test and keep test suites isolated.
+    origAttachShadow = Element.prototype.attachShadow;
+    loadContent(DEFAULT_RULES, '<div id="dynamic-host"></div>');
+  });
+
+  afterEach(() => {
+    Element.prototype.attachShadow = origAttachShadow;
+  });
+
+  test('linkifies content added synchronously after attachShadow on a connected element', async () => {
+    const host = document.getElementById('dynamic-host');
+
+    // Simulate addGerritDynamic(): attachShadow then innerHTML on connected element.
+    const shadow = host.attachShadow({ mode: 'open' });
+    shadow.innerHTML = '<div>동적 추가 커밋: CSWPR-5999 hotfix</div>';
+
+    // MutationObserver callbacks are microtasks — flush them.
+    await Promise.resolve();
+
+    const links = shadow.querySelectorAll('.prefix-linker-link');
+    expect(links).toHaveLength(1);
+    expect(links[0].textContent).toBe('CSWPR-5999');
+  });
+
+  test('linkifies content added asynchronously after attachShadow (Polymer async render)', async () => {
+    const host = document.getElementById('dynamic-host');
+    const shadow = host.attachShadow({ mode: 'open' });
+
+    // Content is added after a tick — simulates Polymer/LitElement async render.
+    await Promise.resolve();
+    shadow.innerHTML = '<span>Fixes CSWPR-8888</span>';
+    await Promise.resolve();
+
+    const links = shadow.querySelectorAll('.prefix-linker-link');
+    expect(links).toHaveLength(1);
+    expect(links[0].textContent).toBe('CSWPR-8888');
+  });
+
+  test('linkifies content in nested shadow root created dynamically', async () => {
+    const host = document.getElementById('dynamic-host');
+    const outerShadow = host.attachShadow({ mode: 'open' });
+
+    // Inner shadow host added to outer shadow.
+    const inner = document.createElement('div');
+    outerShadow.appendChild(inner);
+    await Promise.resolve();
+
+    const innerShadow = inner.attachShadow({ mode: 'open' });
+    innerShadow.innerHTML = '<p>CSWPR-7777 nested</p>';
+    await Promise.resolve();
+
+    const links = innerShadow.querySelectorAll('.prefix-linker-link');
+    expect(links).toHaveLength(1);
+    expect(links[0].textContent).toBe('CSWPR-7777');
+  });
+});
