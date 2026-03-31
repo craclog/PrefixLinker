@@ -46,6 +46,12 @@ function loadContent(initialRules = DEFAULT_RULES, html = '') {
   jest.clearAllMocks();
   Object.assign(global, require('../src/core'));
   _rules = [...initialRules];
+  // Load the MAIN-world shim before content.js, mirroring how Chrome loads them.
+  // In jsdom there is no world isolation, so both run in the same context.
+  // The shim patches attachShadow and dispatches __prefixlinker_shadowroot events;
+  // content.js's event listener (and its own _patchAttachShadow fallback) both
+  // respond.  _observedShadowRoots WeakSet prevents double-observation.
+  require('../extension/shadow-shim.js');
   contentExports = require('../extension/content.js') || {};
 }
 
@@ -65,6 +71,7 @@ function loadContentWithShadow(html, setupFn, rules = DEFAULT_RULES) {
   jest.clearAllMocks();
   Object.assign(global, require('../src/core'));
   _rules = [...rules];
+  require('../extension/shadow-shim.js');
   contentExports = require('../extension/content.js') || {};
 }
 
@@ -373,6 +380,75 @@ describe('content: dynamic shadow root creation after init (addGerritDynamic sce
     const links = innerShadow.querySelectorAll('.prefix-linker-link');
     expect(links).toHaveLength(1);
     expect(links[0].textContent).toBe('CSWPR-7777');
+  });
+});
+
+// ── Tests: Chrome isolated world simulation (event-based path only) ──────────
+//
+// In Chrome, content.js runs in an isolated JS world.  _patchAttachShadow only
+// affects same-world calls; page scripts use the original attachShadow.
+// shadow-shim.js (MAIN world) patches the page's attachShadow and dispatches
+// __prefixlinker_shadowroot so content.js can observe the new shadow root.
+//
+// We simulate this by:
+//   1. Loading content.js normally (it patches attachShadow + adds event listener).
+//   2. Replacing Element.prototype.attachShadow with the shim-only version
+//      (bypassing content.js's _patchAttachShadow, as Chrome would).
+//   3. Calling attachShadow — only the event path runs.
+
+describe('content: Chrome isolated world — event-based shadow root detection', () => {
+  let origAttachShadow;
+  let shimAttachShadow;
+
+  beforeEach(() => {
+    origAttachShadow = Element.prototype.attachShadow;
+    loadContent(DEFAULT_RULES, '<div id="chrome-sim-host"></div>');
+    // After loadContent, Element.prototype.attachShadow is:
+    //   content.js-patch → shim-patch → original
+    // Save the shim-only layer so we can simulate the isolated-world gap.
+    // We reconstruct the shim behaviour: call original, then dispatch event.
+    const _realOrig = origAttachShadow;
+    shimAttachShadow = function (init) {
+      const shadowRoot = _realOrig.call(this, init);
+      if (init && init.mode === 'open') {
+        this.dispatchEvent(
+          new CustomEvent('__prefixlinker_shadowroot', { bubbles: true })
+        );
+      }
+      return shadowRoot;
+    };
+    // Install shim-only on Element.prototype — bypasses content.js's patch.
+    Element.prototype.attachShadow = shimAttachShadow;
+  });
+
+  afterEach(() => {
+    Element.prototype.attachShadow = origAttachShadow;
+  });
+
+  test('event-based: CSWPR-9001 linkified when only shim event fires (no _patchAttachShadow)', async () => {
+    const host = document.getElementById('chrome-sim-host');
+    // attachShadow goes through shim-only path → dispatches event → content.js listener fires
+    const shadow = host.attachShadow({ mode: 'open' });
+    shadow.innerHTML = '<div>Fix CSWPR-9001 in prod</div>';
+
+    await Promise.resolve();
+
+    const links = shadow.querySelectorAll('.prefix-linker-link');
+    expect(links).toHaveLength(1);
+    expect(links[0].textContent).toBe('CSWPR-9001');
+  });
+
+  test('event-based: async innerHTML after shim attachShadow', async () => {
+    const host = document.getElementById('chrome-sim-host');
+    const shadow = host.attachShadow({ mode: 'open' });
+
+    await Promise.resolve();
+    shadow.innerHTML = '<span>CSWPR-9002 async</span>';
+    await Promise.resolve();
+
+    const links = shadow.querySelectorAll('.prefix-linker-link');
+    expect(links).toHaveLength(1);
+    expect(links[0].textContent).toBe('CSWPR-9002');
   });
 });
 

@@ -174,18 +174,17 @@
    * Monkey-patch Element.prototype.attachShadow so that every newly created
    * open shadow root is immediately observed.
    *
-   * This is necessary for cases where attachShadow is called on an element that
-   * is already in the light DOM AFTER startObserver has run — for example:
-   *   - test.html's addGerritDynamic() button
-   *   - Gerrit SPA navigation where <gr-change-view> is re-created in place
+   * NOTE: In Chrome, content scripts run in an isolated JavaScript world.
+   * This patch only intercepts attachShadow calls made from within that same
+   * isolated world.  Page scripts (e.g. Gerrit components, test.html) call
+   * the original, unpatched attachShadow in the MAIN world and this function
+   * has no effect on them.
    *
-   * The main MutationObserver (on document.body) does NOT cross shadow
-   * boundaries, so without this patch, content added to a dynamically created
-   * shadow root would never be linkified.
+   * For page-script calls, shadow-shim.js (world: "MAIN") patches the page's
+   * attachShadow and dispatches a CustomEvent that the listener below catches.
    *
-   * The patch is installed once per page lifetime.  Because rules updates
-   * trigger window.location.reload(), a fresh content script (and a fresh
-   * patch with the latest rules/pattern) is always used.
+   * This function is kept as a fallback for same-world calls and for jsdom
+   * (where there is no world isolation and the patch works for all callers).
    *
    * @param {Array} rules
    * @param {RegExp} pattern
@@ -213,9 +212,21 @@
     _shadowObservers.forEach(obs => obs.disconnect());
     _shadowObservers = [];
 
-    // Intercept all future shadow root creations so they are observed
-    // regardless of when or where attachShadow is called.
+    // Fallback patch for same-world calls (effective in jsdom; no-op for
+    // page-script calls in Chrome's isolated-world content script).
     _patchAttachShadow(rules, pattern);
+
+    // Primary mechanism for Chrome: shadow-shim.js (MAIN world) patches the
+    // page's attachShadow and dispatches this event on the host element.
+    // We observe the new shadow root immediately so any content added right
+    // after (e.g. shadow.innerHTML = '…') is caught by the MutationObserver.
+    document.addEventListener('__prefixlinker_shadowroot', (e) => {
+      const host = /** @type {Element} */ (e.target);
+      if (host && host.shadowRoot) {
+        walkAndLinkify(host.shadowRoot, rules, pattern);
+        _observeShadowRoot(host.shadowRoot, rules, pattern);
+      }
+    });
 
     observer = new MutationObserver((mutations) => {
       mutations.forEach(({ addedNodes }) => {

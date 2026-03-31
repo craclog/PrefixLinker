@@ -8,6 +8,12 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
+      "js": ["shadow-shim.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["<all_urls>"],
       "js": ["core.js", "content.js"],
       "run_at": "document_idle"
     }
