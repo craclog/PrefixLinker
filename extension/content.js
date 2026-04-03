@@ -162,10 +162,16 @@
    * @param {RegExp} pattern
    */
   function _observeElementShadowRoots(el, rules, pattern) {
-    if (el.shadowRoot) _observeShadowRoot(el.shadowRoot, rules, pattern);
+    if (el.shadowRoot) {
+      _observeShadowRoot(el.shadowRoot, rules, pattern);
+      _observeElementShadowRoots(el.shadowRoot, rules, pattern);
+    }
     if (el.querySelectorAll) {
       Array.from(el.querySelectorAll('*')).forEach(child => {
-        if (child.shadowRoot) _observeShadowRoot(child.shadowRoot, rules, pattern);
+        if (child.shadowRoot) {
+          _observeShadowRoot(child.shadowRoot, rules, pattern);
+          _observeElementShadowRoots(child.shadowRoot, rules, pattern);
+        }
       });
     }
   }

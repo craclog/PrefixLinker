@@ -594,3 +594,105 @@ describe('content: test.html — Shadow DOM (Gerrit commit message, init() flow)
     expect(links[0].textContent).toBe('CSWPR-5999');
   });
 });
+
+// ── Tests: _observeElementShadowRoots 재귀 (GerritHub 버그 수정) ─────────────
+//
+// 버그: startObserver() 의 _observeElementShadowRoots(document.body, …) 는
+//   body.querySelectorAll('*') 로 light DOM 만 순회하므로,
+//   shadow root 내부에 중첩된 shadow root 를 관찰하지 못했다.
+//
+//   Gerrit 구조 예시:
+//     body → <gr-app>[shadow1] → <gr-change-view>[shadow2]
+//          → <gr-formatted-text>[shadow3] → <pre>Change-Id: …</pre>
+//
+//   change 데이터는 비동기로 로드되므로 init() 시점엔 shadow3 이 비어있다.
+//   수정 전: shadow3 에 observer 미등록 → Change-Id 미처리.
+//   수정 후: _observeElementShadowRoots 가 shadow root 경계를 재귀해
+//            shadow3 까지 observer 등록 → 비동기 업데이트 처리 ✓.
+
+describe('content: _observeElementShadowRoots 재귀 — 중첩 shadow DOM 비동기 업데이트 (GerritHub fix)', () => {
+  let origAttachShadow;
+  beforeEach(() => { origAttachShadow = Element.prototype.attachShadow; });
+  afterEach(() => { Element.prototype.attachShadow = origAttachShadow; });
+
+  test('shadow root 안의 shadow root에 비동기로 추가된 내용을 linkify', async () => {
+    // body → outer-host[shadow1] → inner-host[shadow2](비어있음)
+    // init() 이후 shadow2 에 내용이 추가될 때 observer 가 잡아야 함
+    let shadow2;
+    loadContentWithShadow('<div id="outer-host"></div>', () => {
+      const outerHost = document.getElementById('outer-host');
+      const shadow1 = outerHost.attachShadow({ mode: 'open' });
+
+      const innerHost = document.createElement('div');
+      shadow1.appendChild(innerHost);
+      shadow2 = innerHost.attachShadow({ mode: 'open' });
+      // shadow2 는 비어 있음 — 데이터 미로드 상태
+    });
+
+    // init() 완료. 재귀 _observeElementShadowRoots 로 shadow2 에도 observer 등록됨.
+    // 비동기 데이터 로드 시뮬레이션
+    shadow2.innerHTML = '<pre>이슈 CSWPR-DEEP 긴급 수정</pre>';
+    await Promise.resolve();
+
+    const links = shadow2.querySelectorAll('.prefix-linker-link');
+    expect(links).toHaveLength(1);
+    expect(links[0].textContent).toBe('CSWPR-DEEP');
+  });
+
+  test('3단 중첩 shadow root 비동기 업데이트 (gr-app → gr-change-view → gr-formatted-text)', async () => {
+    // GerritHub 의 실제 컴포넌트 계층 구조 재현 (CSWPR prefix)
+    let shadow3;
+    loadContentWithShadow('<div id="gr-app"></div>', () => {
+      const grApp = document.getElementById('gr-app');
+      const shadow1 = grApp.attachShadow({ mode: 'open' }); // gr-app.shadowRoot
+
+      const grChangeView = document.createElement('div');
+      shadow1.appendChild(grChangeView);
+      const shadow2 = grChangeView.attachShadow({ mode: 'open' }); // gr-change-view.shadowRoot
+
+      const grFormattedText = document.createElement('div');
+      shadow2.appendChild(grFormattedText);
+      shadow3 = grFormattedText.attachShadow({ mode: 'open' }); // gr-formatted-text.shadowRoot
+      // shadow3 비어있음 — change 데이터 비동기 로드 전
+    });
+
+    // Gerrit 비동기 렌더링: 커밋 메시지 추가
+    shadow3.innerHTML = '<pre>fix: CSWPR-3DEEP in prod</pre>';
+    await Promise.resolve();
+
+    const links = shadow3.querySelectorAll('.prefix-linker-link');
+    expect(links).toHaveLength(1);
+    expect(links[0].textContent).toBe('CSWPR-3DEEP');
+  });
+
+  test('GerritHub 실제 시나리오: Change- prefix, 3단 중첩 shadow DOM', async () => {
+    const GERRIT_RULES = [
+      { prefix: 'Change-', urlTemplate: 'https://www.google.com/search?q={match}' },
+    ];
+    let grFormattedTextShadow;
+
+    loadContentWithShadow('<div id="gr-app"></div>', () => {
+      const grApp = document.getElementById('gr-app');
+      const grAppShadow = grApp.attachShadow({ mode: 'open' });
+
+      const grChangeView = document.createElement('div');
+      grAppShadow.appendChild(grChangeView);
+      const grChangeViewShadow = grChangeView.attachShadow({ mode: 'open' });
+
+      const grFormattedText = document.createElement('div');
+      grChangeViewShadow.appendChild(grFormattedText);
+      grFormattedTextShadow = grFormattedText.attachShadow({ mode: 'open' });
+      // 비어있음 — change 데이터 비동기 로드 전
+    }, GERRIT_RULES);
+
+    // Gerrit 이 비동기로 커밋 메시지 렌더링
+    grFormattedTextShadow.innerHTML =
+      '<pre>fix: something\n\nChange-Id: I907da15b35812684290b0ecd1840ca28276cac65</pre>';
+    await Promise.resolve();
+
+    const links = grFormattedTextShadow.querySelectorAll('.prefix-linker-link');
+    expect(links).toHaveLength(1);
+    expect(links[0].textContent).toBe('Change-Id');
+    expect(links[0].href).toBe('https://www.google.com/search?q=Change-Id');
+  });
+});

@@ -1,6 +1,6 @@
 {
   "name": "prefix-linker",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "description": "Chrome extension that turns prefix-matched text into clickable links",
   "scripts": {
     "test": "jest",
